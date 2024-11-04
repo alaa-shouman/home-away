@@ -1,5 +1,5 @@
 import FavoriteToggleButton from "@/components/card/FavoriteToggleButton";
-import { fetchPropertyDetails } from "@/utils/actions";
+import { fetchPropertyDetails, findExistingReview } from "@/utils/actions";
 import { redirect } from "next/navigation";
 import BreadCrumbs from "../BreadCrumbs";
 import ShareButton from "../ShareButton";
@@ -13,7 +13,9 @@ import Description from "../Description";
 import Amenities from "../Amenities";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import SubmitReview from "@/components/reviews/SubmitReview";
+import PropertyReviews from "@/components/reviews/PropertyReviews";
+import { auth } from "@clerk/nextjs/server";
 async function PropertyDetailsPage({ params }: { params: { id: string } }) {
   const property = await fetchPropertyDetails(params.id);
   if (!property) redirect("/");
@@ -28,6 +30,11 @@ async function PropertyDetailsPage({ params }: { params: { id: string } }) {
       loading: () => <Skeleton className="h-[400px] w-full" />,
     }
   );
+
+  const { userId } = auth();
+  const isNotOwner = property.profile.clerkId !== userId;
+  const reviewDoesNotExist =
+    userId && isNotOwner && !(await findExistingReview(userId, property.id));
   return (
     <section>
       <BreadCrumbs name={property.name} />
@@ -51,13 +58,15 @@ async function PropertyDetailsPage({ params }: { params: { id: string } }) {
           <Separator className="mt-4" />
           <Description description={property.description} />
           <Amenities amenities={property.amenities} />
-          <DynamicMap countryCode={property.country} />;
+          <DynamicMap countryCode={property.country} />
         </div>
         <div className="lg:col-span-4 flex flex-col items-center">
           {/* calendar */}
           <BookingCalendar />
         </div>
       </section>
+      {reviewDoesNotExist && <SubmitReview propertyId={property.id} />}
+      <PropertyReviews propertyId={property.id} />
     </section>
   );
 }
